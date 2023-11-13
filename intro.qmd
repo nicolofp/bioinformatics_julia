@@ -1,8 +1,9 @@
 ---
-title: "Untitled"
-author: "Nicol&aucuteo; Foppa Pedretti"
-date: 11/12/2023
-format: gfm
+title: "Introduction"
+date: "11/12/2023"
+format:
+  gfm:
+    html-math-method: webtex
 ---
 
 # Example of test

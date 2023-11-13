@@ -1,6 +1,5 @@
-Untitled
+Introduction
 ================
-Nicol&aucuteo; Foppa Pedretti
 11/12/23
 
 # Example of test
