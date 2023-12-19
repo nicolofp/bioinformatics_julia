@@ -1,24 +1,61 @@
 using DataFrames, Statistics, LinearAlgebra 
-using Distributions, StatsBase, Random
+using Distributions, StatsBase, Random, DuckDB
 
 # Dataset Test
-rng = MersenneTwister(2090);
+#= rng = MersenneTwister(2090);
 x = rand(rng,Normal(0.0,0.1),2000,5)
 a = -1.2
 b = vec([1.1 -0.12 0.34 2.13 -1.8])
 b2 = vec([2.1 -1.12 0.94 -1.13 -0.38])
 mmix = a .+ x * b
 mmix2 = a .+ x * b2
-y1 = rand(rng,MvNormal(mmix,0.5 * I))
-y2 = rand(rng,MvNormal(mmix,0.5 * I))
-y3 = rand(rng,MvNormal(mmix2,0.5 * I))
-y4 = rand(rng,MvNormal(mmix,0.5 * I))
-y = hcat(y1,y2,y3,y4)
-dt = DataFrame(hcat(y,x), ["y1","y2","y3","y4","x1","x2","x3","x4","x5"])
-out = ["y1","y2","y3","y4"];
-cov = ["x1","x2","x3","x4","x5"];
+K = 2000
+y = rand(rng,MvNormal(mmix,0.5 * I),K)
+dt = DataFrame(hcat(y,x), 
+               vcat("y" .* string.(1:K),
+                    "x" .* string.(1:5)))
+out = "y" .* string.(1:K);
+cov = "x" .* string.(1:5)=#
 
-ewas_lm(dt,out,cov,true)
+con = DBInterface.connect(DuckDB.DB, ":memory:")
+dt = DataFrame(DBInterface.execute(con,
+           """
+           SELECT *
+           FROM 'C:/Users/nicol/Documents/dt_limma_test.csv'
+           """));
+
+out = names(dt)[1:20]
+cov = names(dt)[21:22]
+
+@time ewas_lm(dt,out,cov,true)
+@time lm_series(dt,out,cov)
+
+function linreg3(x::AbstractVector{T}, y::AbstractVector{T}) where {T<:AbstractFloat}
+    (N = length(x)) == length(y) || throw(DimensionMismatch())
+    ldiv!(cholesky!(Symmetric([T(N) sum(x); zero(T) sum(abs2, x)], :U)), [sum(y), dot(x, y)])
+end
+
+function linreg2(x::AbstractVector{T}, y::AbstractVector{T}) where {T<:AbstractFloat}
+    X = [ones(length(x)) x]
+    ldiv!(cholesky!(Symmetric(X'X, :U)), X'y)
+end
+
+# Plot-twist --> I can handle multiple regression in once
+function lm_series(dt, out, cov)
+    X_tmp = hcat(ones(size(dt,1)), Matrix{Float64}(dt[:,cov]))
+    Y_tmp = Matrix{Float64}(dt[:,out])
+    β = X_tmp\Y_tmp 
+    σ = sqrt.(vec(sum((Y_tmp - X_tmp*β).^2,dims = 1)./(size(X_tmp,1)-size(X_tmp,2))))
+    Σ = inv(X_tmp'*X_tmp)
+    std_coeff_unscaled = sqrt.(diag(Σ))
+    tmp = (beta = β, sigma = σ, S = Σ, std_coeff_unscaled = std_coeff_unscaled)
+    return tmp
+end 
+
+
+
+         
+
 
 # EWAS function 
 function ewas_lm(dt, out, cov, multithreads = true)
