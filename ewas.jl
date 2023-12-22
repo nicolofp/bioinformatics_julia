@@ -1,4 +1,4 @@
-using DataFrames, Statistics, LinearAlgebra 
+using DataFrames, Statistics, LinearAlgebra, SpecialFunctions
 using Distributions, StatsBase, Random, DuckDB
 
 # Dataset Test
@@ -24,11 +24,11 @@ dt = DataFrame(DBInterface.execute(con,
            FROM 'C:/Users/nicol/Documents/dt_limma_test.csv'
            """));
 
-out = names(dt)[1:20]
-cov = names(dt)[21:22]
+outc = names(dt)[1:20]
+covr = names(dt)[21:22]
 
-@time ewas_lm(dt,out,cov,true)
-@time lm_series(dt,out,cov)
+@time ewas_lm(dt,out,cov,false);
+@time tmp = lm_series(dt,outc,covr);
 
 function linreg3(x::AbstractVector{T}, y::AbstractVector{T}) where {T<:AbstractFloat}
     (N = length(x)) == length(y) || throw(DimensionMismatch())
@@ -48,14 +48,85 @@ function lm_series(dt, out, cov)
     σ = sqrt.(vec(sum((Y_tmp - X_tmp*β).^2,dims = 1)./(size(X_tmp,1)-size(X_tmp,2))))
     Σ = inv(X_tmp'*X_tmp)
     std_coeff_unscaled = sqrt.(diag(Σ))
-    tmp = (beta = β, sigma = σ, S = Σ, std_coeff_unscaled = std_coeff_unscaled)
+    tmp = (beta = β', sigma = σ, S = Σ, 
+           df_fitted = (size(X_tmp,1)-size(X_tmp,2)) * ones(size(Y_tmp,2)),
+           std_coeff_unscaled = std_coeff_unscaled)
     return tmp
 end 
 
+x = [1e10 ,1e8]#,rand(Uniform(0,1),998))
+trigammaInverse(x)
+function trigammaInverse(x)
+    x[x .> 1e7]  = 1 ./sqrt.(x[x .> 1e7])
+    x[x .< 1e-6] = 1 ./ x[x .< 1e-6]
+    
+    y = 0.5 .+ 1 ./x
+    iter = 0 
+    dif = 100
+    while iter < 100 #niter flexible
+        iter += 1
+        tri = trigamma.(y)
+        dif = tri .* (1 .- tri ./ x) ./ polygamma.(2,y)
+        y = y + dif
+        if maximum(-dif./y) < 1e-8 break
+        end
+    end 
+    y
+end 
+
+x = [3,0,0.01,2,4.5,0.2]
+df1 = 4*ones(6)
+fitFDist(x,df1)
+
+function fitFDist(x,df1)
+    x[x .< 0] .= 0
+    m = median(x)
+    x[x .< 1e-5 * m] .= 1e-5 * m
+    z = log.(x)
+    e = z - digamma.(df1./2) + log.(df1./2)
+
+    emean = mean(e)
+    evar = sum((e .- emean).^2)/(length(x)-1)
+
+    evar = evar - mean(trigamma.(df1./2))
+    if evar > 0
+        df2 = 2*trigammaInverse(evar)
+        s20 = exp.(emean .+ digamma.(df2./2)-log.(df2./2))
+    else
+        df2 = Inf
+        s20 = mean(x)
+    end
+    tmp = (scale=s20,df2=df2)
+    return tmp
+end         
+
+function squeezeVar_in(var, df, var_prior, df_prior)
+    if isfinite(df_prior)
+        return (df .* var .+ df_prior .* var_prior) ./ (df .+ df_prior) 
+    else var_prior * ones(length(var))
+    end
+end
+
+function squeezeVar(var, df)
+    n = length(var)
+    fit = fitFDist(var, df)
+    df_prior = fit.df2
+    var_post = squeezeVar_in(var, df, fit.scale, df_prior)
+    tmp = (df_prior = df_prior, var_prior = fit.scale, var_post = var_post)
+    return(tmp)
+end
+
+squeezeVar(tmp.sigma.^2,tmp.df_fitted)
 
 
-         
+## Function to compute B-statistic
+function tmixture_vector(tstat,stdev_unscaled,df,proportion,v0.lim=NULL)
+    # to complete
+end
 
+function tmixture_matrix(tstat,stdev_unscaled,df,proportion,v0.lim=NULL)
+    # to complete
+end
 
 # EWAS function 
 function ewas_lm(dt, out, cov, multithreads = true)
