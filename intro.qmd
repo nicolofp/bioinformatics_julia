@@ -1,8 +1,6 @@
 ---
 title: "Introduction"
-format:
-  gfm:
-    html-math-method: webtex
+format: gfm
 ---
 
 ## Example of test
@@ -11,7 +9,7 @@ Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor i
 
 ## Normalization process
 
-$KL(\hat{y} || y) = \sum_{c=1}^{M}\hat{y}_c \log{\frac{\hat{y}_c}{y_c}}$
+$$KL(\hat{y} || y) = \sum_{c=1}^{M}\hat{y}_c \log{\frac{\hat{y}_c}{y_c}}$$
 
 ```{julia}
 using Plots, Statistics
