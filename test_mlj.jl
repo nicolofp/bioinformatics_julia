@@ -33,5 +33,7 @@ rsquared(yhat,y[test])
 i = info("DecisionTreeRegressor", pkg="DecisionTree")
 
 # Additional interesting topics:
+# TMLE
+# ShapML --> variable selection
 # Stacking 
 # Pipeline
