@@ -15,7 +15,8 @@ $$KL(\hat{y} || y) = \sum_{c=1}^{M}\hat{y}_c \log{\frac{\hat{y}_c}{y_c}}$$
 
 ```{julia}
 #| echo: false
-#| fig-align: 'center'
+#| fig-width: 4
+#| fig-height: 4
 
 using Plots, Statistics, Distributions
 x = sort(rand(Uniform(0.0,5.0),138))
@@ -26,7 +27,6 @@ plot!(x,y)
 
 ```
 
-## Example Multicols
 
 ::: {layout-ncol=2}
 ### List One
