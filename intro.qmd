@@ -29,7 +29,7 @@ dt = DataFrame(DBInterface.execute(con,
            SELECT *
            FROM 'C:/Users/nicol/Documents/dt_limma_test.csv'
            """))
-dt
+dt |> print
 ```
 
 
