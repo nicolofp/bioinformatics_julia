@@ -15,6 +15,5 @@ mollit anim id est laborum.
 
 $$KL(\hat{y} || y) = \sum_{c=1}^{M}\hat{y}_c \log{\frac{\hat{y}_c}{y_c}}$$
 
-``` julia
-using Plots, Statistics
-```
+<img src="intro_files/figure-commonmark/cell-2-output-1.png"
+data-fig-align="center" />

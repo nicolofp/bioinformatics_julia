@@ -12,5 +12,14 @@ Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor i
 $$KL(\hat{y} || y) = \sum_{c=1}^{M}\hat{y}_c \log{\frac{\hat{y}_c}{y_c}}$$
 
 ```{julia}
-using Plots, Statistics
+#| echo: false
+#| fig-align: center
+
+using Plots, Statistics, Distributions
+x = sort(rand(Uniform(0.0,5.0),138))
+y = -0.4 .+ 2.926 .* x 
+yhat = y + rand(Normal(0.0,1.0),138)
+scatter(x,yhat, legend = nothing, title = "Regression line")
+plot!(x,y)
+
 ```
