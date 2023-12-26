@@ -11,9 +11,11 @@ Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor i
 
 $$KL(\hat{y} || y) = \sum_{c=1}^{M}\hat{y}_c \log{\frac{\hat{y}_c}{y_c}}$$
 
+## Example code
+
 ```{julia}
 #| echo: false
-#| fig-align: center
+#| fig-align: 'center'
 
 using Plots, Statistics, Distributions
 x = sort(rand(Uniform(0.0,5.0),138))
@@ -23,3 +25,19 @@ scatter(x,yhat, legend = nothing, title = "Regression line")
 plot!(x,y)
 
 ```
+
+## Example Multicols
+
+::: {layout-ncol=2}
+### List One
+
+- Item A
+- Item B
+- Item C
+
+### List Two
+
+- Item X
+- Item Y
+- Item Z
+:::
