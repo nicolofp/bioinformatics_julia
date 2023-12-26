@@ -14,9 +14,7 @@ $$KL(\hat{y} || y) = \sum_{c=1}^{M}\hat{y}_c \log{\frac{\hat{y}_c}{y_c}}$$
 ## Example code
 
 ```{julia}
-#| echo: false
-#| fig-width: 4
-#| fig-height: 4
+#| echo: true
 
 using Plots, Statistics, Distributions, DataFrames, DuckDB
 #= x = sort(rand(Uniform(0.0,5.0),138))
