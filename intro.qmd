@@ -2,7 +2,7 @@
 title: "Introduction"
 format: 
     gfm:
-      df-print: default
+      df-print: kable
 ---
 
 ## Example of test
@@ -32,7 +32,7 @@ dt = DataFrame(DBInterface.execute(con,
            FROM 'C:/Users/nicol/Documents/dt_limma_test.csv'
            LIMIT 10
            """))
-dt
+show(dt)
 ```
 
 
