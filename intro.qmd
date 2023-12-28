@@ -32,7 +32,7 @@ dt = DataFrame(DBInterface.execute(con,
            FROM 'C:/Users/nicol/Documents/dt_limma_test.csv'
            LIMIT 10
            """))
-show(dt, tf = PrettyTables.tf_markdown)
+dt
 ```
 
 
