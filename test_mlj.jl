@@ -1,5 +1,5 @@
 using DataFrames, Statistics, LinearAlgebra
-using Distributions, StatsBase, Random, MLJ, SIRUS
+using Distributions, StatsBase, Random, MLJ
 
 # Dataset Test for MLJ
 rng = MersenneTwister(2090);

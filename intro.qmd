@@ -1,8 +1,6 @@
 ---
 title: "Introduction"
-format: 
-    gfm:
-      df-print: kable
+format: gfm
 ---
 
 ## Example of test
@@ -32,7 +30,7 @@ dt = DataFrame(DBInterface.execute(con,
            FROM 'C:/Users/nicol/Documents/dt_limma_test.csv'
            LIMIT 10
            """))
-show(dt)
+
 ```
 
 
