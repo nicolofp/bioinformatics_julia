@@ -26,7 +26,7 @@ Mmirna = Matrix(Matrix{Float64}(mirna[:,2:347])')
 Mpheno = Matrix(pheno[:,[:diagnosis, :age, :sex]])
 mirna.rn = "miRNA" .* string.(1:2565)
 Tmirna = permutedims(mirna,1)
-Tmirna.y = coerce(pheno.source_name_ch1, Multiclass)  
+Tmirna.y = coerce(pheno.source_name_ch1, OrderedFactor)  
 
 # Create machine for PCA 
 PCA = @load PCA pkg=MultivariateStats
@@ -38,16 +38,25 @@ ytrain = Tmirna.y[train]
 ytest = Tmirna.y[test]
 Xtrain = MLJ.table(Mmirna[train,:])
 Xtest = MLJ.table(Mmirna[test,:])
-model_pca = Standardizer() |> PCA(maxoutdim = 6) |> RandomForestClassifier()
-#model_rf = 
-mach = machine(model_pca, Xtrain, ytrain) |> fit!
-Xtrain_pca = MLJ.transform(mach,Xtrain)
+model = Standardizer() |> PCA(maxoutdim = 6) #|> RandomForestClassifier()
+model2 = RandomForestClassifier()
+mach = machine(model, Xtrain) |> fit! 
+Xtrain_pca = MLJ.transform(mach, Xtrain)
 
-mach_rf = machine(model_rf, Xtrain_pca, ytrain) |> fit!
-yhat = MLJ.predict_mode(mach, Xtest)
+
+mach2 = machine(model2, Xtrain_pca, ytrain) |> fit!
+
+# Cross-validation
+evaluate!(mach2, resampling = CV(nfolds=10, rng=1234), measure = accuracy)
+
+# Summary 
+Xtest_pca = MLJ.transform(mach, Xtest)
+yhat = MLJ.predict_mode(mach2, Xtest_pca)
 confusion_matrix(yhat, ytest)
 accuracy(yhat, ytest)
+
 # ex_var = report(mach).pca.principalvars
 # sum((ex_var.^2/sum(ex_var.^2))[1:6])
 # fitted_params(mach)
 # report(mach).loadings
+
