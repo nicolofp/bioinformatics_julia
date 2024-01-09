@@ -1,5 +1,5 @@
 using DataFrames, Statistics, LinearAlgebra, Plots
-using Distributions, StatsBase, Random, MLJ
+using Distributions, StatsBase, Random, MLJ, ShapML
 
 include("test_s3.jl");
 lpheno = S3Path("s3://envbran/methylation/GSE117064_pheno.arrow")
@@ -34,18 +34,6 @@ mach_pca = machine(model_pca, Xtrain) |> fit!
 Xtrain_pca = MLJ.transform(mach_pca, Xtrain);
 Xtrain_pca = MLJ.table(Xtrain_pca);
 
-# First let's try to LM and the crossvalidation
-LinearRegressor = @load LinearRegressor pkg=GLM
-model_glm = LinearRegressor()
-mach_glm = machine(model_glm, Xtrain_pca, ytrain) |> fit!
-fitted_params(mach_glm)
-report(mach_glm)
-
-# Let's cross-validate model
-evaluate!(mach_glm, resampling = CV(nfolds=10, rng=1234))
-report(mach_glm)
-
-# Ensamble example with same ML model
 Tree = @load DecisionTreeRegressor pkg=DecisionTree
 tree_model = Tree()
 mach_tree = machine(tree_model, Xtrain_pca, ytrain) |> fit!
@@ -57,24 +45,29 @@ rms(yhat, ytest)
 evaluate!(mach_tree, resampling=Holdout(fraction_train=0.7, rng=1234),
           measure=rms)
 
-# Ensamble model          
-ensemble_model = EnsembleModel(model=tree_model, n=1000);   
-ensemble = machine(ensemble_model, Xtrain_pca, ytrain) |> fit!
-estimates = evaluate!(ensemble, resampling=CV())
+# Create a wrapper function that takes the following positional arguments: (1) a
+# trained ML model from any Julia package, (2) a DataFrame of model features. The
+# function should return a 1-column DataFrame of predictions--column names do not matter.
+function predict_function(model, data)
+  data_pred = DataFrame(y_pred = MLJ.predict(model, data))
+  return data_pred
+end
 
-# Staking example with multiple ML models
-lm = @load LinearRegressor pkg=GLM
-forest = @load RandomForestRegressor pkg=DecisionTree
+#------------------------------------------------------------------------------
+# ShapML setup.
+explain = DataFrame(Xtrain_pca)
+explain = explain[1:500,:]
 
-stack = Stack(;metalearner = lm(),
-                resampling=CV(),
-                measures=rmse,
-                constant = ConstantRegressor(),
-                forest = forest(),
-                lm = lm())
+reference = DataFrame(Xtrain_pca) 
+sample_size = 60  # Number of Monte Carlo samples.
+#------------------------------------------------------------------------------
+# Compute stochastic Shapley values.
+data_shap = ShapML.shap(explain = explain,
+                        reference = reference,
+                        model = mach_tree,
+                        predict_function = predict_function,
+                        sample_size = sample_size,
+                        seed = 1
+                        )
 
-mach = machine(stack, Xtrain_pca, ytrain) |> fit!
-evaluate!(mach; resampling=Holdout(), measure=rmse)
-
-report(mach).cv_report
-
+show(data_shap, allcols = true)
