@@ -19,17 +19,22 @@ $$KL(\hat{y} || y) = \sum_{c=1}^{M}\hat{y}_c \log{\frac{\hat{y}_c}{y_c}}$$
 
 ``` julia
 using Plots, Statistics, Distributions, DataFrames, DuckDB
-#= x = sort(rand(Uniform(0.0,5.0),138))
+x = sort(rand(Uniform(0.0,5.0),138))
 y = -0.4 .+ 2.926 .* x 
 yhat = y + rand(Normal(0.0,1.0),138)
 scatter(x,yhat, legend = nothing, title = "Regression line")
-plot!(x,y) =#
+plot!(x,y)
 
-con = DBInterface.connect(DuckDB.DB, ":memory:")
+#=con = DBInterface.connect(DuckDB.DB, ":memory:")
 dt = DataFrame(DBInterface.execute(con,
            """
            SELECT *
            FROM 'C:/Users/nicol/Documents/dt_limma_test.csv'
            LIMIT 10
-           """))
+           """)) =#
 ```
+
+    [ Info: Precompiling Distributions [31c24e10-a181-5473-b8eb-7969acd0382f]
+
+<img src="intro_files/figure-commonmark/cell-2-output-2.png"
+data-fig-align="center" />
