@@ -17,10 +17,13 @@ Tmirna = permutedims(mirna,1);
 # histogram(dt.hba1c)
 # Split train-test dataset (now outcome is hba1c)
 train, test = partition(collect(eachindex(Tmirna.miRNA1)), 0.8, shuffle=true, rng=111)
-Xtrain = MLJ.table(Matrix{Float64}(Tmirna[train,2:2566]))
+#= Xtrain = MLJ.table(Matrix{Float64}(Tmirna[train,2:2566]))
 Xtest  = MLJ.table(Matrix{Float64}(Tmirna[test,2:2566]))
-ytrain = Array{Float64}(dt[train,:hba1c])
-ytest  = Array{Float64}(dt[test,:hba1c]); 
+ytrain = Array{Float64}(dt[train,:systolic])
+ytest  = Array{Float64}(dt[test,:systolic]); =#
+
+X = MLJ.table(Matrix{Float64}(Tmirna[:,2:2566]))
+y = Array{Float64}(dt[:,:systolic])
 
 # Create machine for Lasso Regression 
 Standardizer = @load Standardizer pkg=MLJModels
@@ -29,7 +32,8 @@ LassoRegressor = LassoRegressor = @load LassoRegressor pkg=MLJLinearModels
 # Run the model
 # model = Standardizer() |> 
 model = LassoRegressor(solver = MLJLinearModels.ProxGrad(max_iter = 10000))
-mach = machine(model, Xtrain, ytrain) |> fit! 
+mach = machine(model, X, y) #|> fit!
+fit!(mach, rows = train)
 evaluate!(mach, resampling = CV(nfolds=10, rng=1234))
 report(mach)
 
@@ -39,11 +43,10 @@ lasso_coef = [coefs[i][2] for i in 1:2565]
 DT_lasso = DataFrame(name = mirna.rn, coefs = lasso_coef)
 DT_lasso[DT_lasso.coefs .> 0,:]
 
-# Compute adj-R2
-using Plots
-yhat_t =  MLJ.predict(mach, Xtrain)
-scatter(ytrain,yhat_t)
-
 # Prediction 
 yhat = MLJ.predict(mach, Xtest) 
 rms(yhat, ytest)
+
+evaluate!(mach,
+          resampling = CV(nfolds = 3),
+          measure = [rsquared])
