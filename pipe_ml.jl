@@ -25,6 +25,7 @@ PCA = @load PCA pkg=MultivariateStats
 Standardizer = @load Standardizer pkg=MLJModels
 RandomForestClassifier = @load RandomForestClassifier pkg=DecisionTree
 
+
 train, test = partition(collect(eachindex(Tmirna.y)), 0.7, shuffle=true, rng=111)
 ytrain = Tmirna.y[train]
 ytest = Tmirna.y[test]
@@ -33,8 +34,7 @@ Xtest = MLJ.table(Mmirna[test,:])
 model = Standardizer() |> PCA(maxoutdim = 6) #|> RandomForestClassifier()
 model2 = RandomForestClassifier()
 mach = machine(model, Xtrain) |> fit! 
-Xtrain_pca = MLJ.transform(mach, Xtrain)
-
+Xtrain_pca = MLJ.transform(mach, Xtrain);
 
 mach2 = machine(model2, Xtrain_pca, ytrain) |> fit!
 
@@ -42,13 +42,7 @@ mach2 = machine(model2, Xtrain_pca, ytrain) |> fit!
 evaluate!(mach2, resampling = CV(nfolds=10, rng=1234), measure = accuracy)
 
 # Summary 
-Xtest_pca = MLJ.transform(mach, Xtest)
-yhat = MLJ.predict_mode(mach2, Xtest_pca)
+Xtest_pca = MLJ.transform(mach, Xtest);
+yhat = MLJ.predict_mode(mach2, Xtest_pca);
 confusion_matrix(yhat, ytest)
 accuracy(yhat, ytest)
-
-# ex_var = report(mach).pca.principalvars
-# sum((ex_var.^2/sum(ex_var.^2))[1:6])
-# fitted_params(mach)
-# report(mach).loadings
-
