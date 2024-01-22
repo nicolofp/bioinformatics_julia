@@ -5,28 +5,20 @@ include("test_s3.jl");
 lpheno = S3Path("s3://envbran/methylation/GSE117064_pheno.arrow")
 lmirna = S3Path("s3://envbran/methylation/GSE117064_mirna.arrow")
 
-pheno = DataFrame(Arrow.Table(lpheno))
-pheno = pheno[pheno.relation .== "",:]
-mirna = DataFrame(Arrow.Table(lmirna))
+pheno = DataFrame(Arrow.Table(lpheno));
+mirna = DataFrame(Arrow.Table(lmirna));
 
-rn_ncvd  = parse.(Int32,pheno[ismissing.(pheno.pairing_rn) .== 0,:pairing_rn])
-rn_cvd = pheno[ismissing.(pheno.pairing_rn) .== 0,:rn]
-pheno = pheno[vcat(rn_ncvd,rn_cvd),:]
-names(pheno)
-mirna = mirna[:,vcat("rn",pheno.geo_accession)]
-
-# Check mean and variance 
-std.(eachrow(mirna[:,2:347]))
-mean.(eachrow(mirna[:,2:347]))
+pheno = pheno[pheno.class_label .== 1,["geo_accession", "source_name_ch1", "age:ch1", "Sex:ch1"]];
+rename!(pheno,[:geo_accession,:diagnosis,:age,:sex]);
+mirna = mirna[:,vcat("rn",pheno.geo_accession)];
 
 # I should transform everything in Matrix format 
-pheno.diagnosis = parse.(Int64,pheno.diagnosis)
 pheno.sex = ifelse.(pheno.sex .== "Male",1,0)
 Mmirna = Matrix(Matrix{Float64}(mirna[:,2:347])')
 Mpheno = Matrix(pheno[:,[:diagnosis, :age, :sex]])
 mirna.rn = "miRNA" .* string.(1:2565)
 Tmirna = permutedims(mirna,1)
-Tmirna.y = coerce(pheno.source_name_ch1, OrderedFactor)  
+Tmirna.y = coerce(pheno.diagnosis, OrderedFactor);  
 
 # Create machine for PCA 
 PCA = @load PCA pkg=MultivariateStats
