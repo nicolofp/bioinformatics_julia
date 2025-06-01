@@ -1,0 +1,72 @@
+---
+title: "High-throughput linear model"
+subtitle: "Fast Julia code for EWAS analysis"
+author: "Nicol&oacute; Foppa Pedretti"
+format: 
+  html:
+    fontsize: smaller
+    number-sections: true
+    embed-resources: true
+bibliography: reference_jbio.bib
+csl: ieee.csl
+---
+
+## Introduction
+
+Unlocking the secrets hidden within massive datasets – that's the promise of high-throughput experiments (HTEs).  These experiments generate a wealth of information, measuring thousands or even millions of variables simultaneously.  While exciting, this data deluge presents a challenge: how do we extract meaningful insights from this sea of information? Linear models step up to the plate as a powerful tool for analyzing HTE data.  Imagine a simple equation where a single outcome (like gene expression) is influenced by one or more factors (like drug concentration).  This is the essence of a linear model, providing a clear framework for understanding these relationships. This project is inspired by [@10.1093/nar/gkv007]
+
+## Why Julia? 
+
+High-throughput experiments (HTEs) churn out massive datasets, often containing millions of variables. Analyzing these datasets with linear models to understand the relationships between these variables and the outcomes is crucial. But here's the challenge: traditional programming languages can struggle with the sheer computational demands of high-dimensional linear algebra. This is where Julia steps in as a game-changer. Here's why Julia is an excellent choice for tackling linear models in HTEs:
+
+* **Built-in Performance:** Julia is designed from the ground up for scientific computing. Its core is optimized for linear algebra operations, making it blazingly fast for manipulating high-dimensional matrices, a cornerstone of linear models. This translates to quicker analysis times and the ability to handle even larger HTE datasets
+
+* **Just-in-Time (JIT) Compilation:** Unlike traditional languages that interpret code line by line, Julia uses JIT compilation. This means Julia analyzes your code and converts it into highly optimized machine code for your specific hardware. This on-the-fly optimization unleashes significant performance gains, especially for computationally intensive tasks like linear regressions in HTEs
+
+* **Multiple Dispatch:** Julia employs a powerful concept called "multiple dispatch". This allows functions to adapt their behavior based on the data types involved. When working with linear models, Julia can tailor computations to the specific types of matrices and vectors used, further streamlining calculations
+
+* **Reduced Coding Overhead:** Julia is known for its concise and expressive syntax. Compared to languages like Python, you can achieve the same functionality in fewer lines of code. This reduces development time and makes your code easier to read and maintain, especially for complex HTE analyses
+
+In essence, Julia removes the computational bottleneck often encountered with traditional languages when dealing with high-dimensional linear models in HTEs. Its speed, efficiency, and focus on scientific computing make it an ideal choice for researchers who want to unlock the full potential of their HTE data.
+
+## Model 
+
+In Julia we can simply compute multiple linear regression at once using the backslash (`\`) operator. This allow the user to optimize the code and the speed of execution. 
+
+$$ y_i = \beta_{0,i} + \beta_{1,i}x_1 + \beta_{2,i}x_2 + \beta_{3,i}x_3 + \epsilon$$
+
+Here we have $i = 1, \ldots, N$ where $N$ is the number of outputs. The code reported here below follows the classic definition of the linear regression. The only non-trivial line is related to the *standard error* of the coefficients that change based on the outcome considered. Here to solve the issue we use the *Kronecker product* and the standard error of the coefficients relative to the outcome $i$ is define as follow:
+
+$$sd_i = \sqrt{\sigma \otimes diag(\Sigma)}$$
+
+Here the function ready to use in Julia:
+
+```{julia}
+function lm_ewas(dt, out, cov)
+    X_tmp = hcat(ones(size(dt,1)), Matrix{Float32}(dt[:,cov]))
+    Y_tmp = Matrix{Float32}(dt[:,out])
+    β = X_tmp\Y_tmp 
+    σ = sqrt.(vec(sum((Y_tmp - X_tmp*β).^2,dims = 1)./(size(X_tmp,1)-size(X_tmp,2))))
+    Σ = inv(X_tmp'*X_tmp)
+    std_coeff = sqrt.(kron(σ,diag(Σ))) # Kronecker product
+
+    βvec = reshape(β,length(out) * (length(cov) + 1))
+    tval = βvec ./ std_coeff
+    pval = cdf(TDist(size(X_tmp,1)-size(X_tmp,2)), -abs.(βvec ./ std_coeff))
+    ci025 = βvec .- quantile(TDist(size(X_tmp,1)-size(X_tmp,2)), 0.975) .* std_coeff
+    ci975 = βvec .+ quantile(TDist(size(X_tmp,1)-size(X_tmp,2)), 0.975) .* std_coeff    
+    outcome = repeat(out, inner = length(cov) + 1)
+    covariates = repeat(vcat("intercept",cov), outer = length(out))
+
+    tmp = (outcome = outcome, covariates = covariates,
+           beta = βvec, sd = std_coeff, tval = tval, 
+           pval = pval, ci025 = ci025, ci975 = ci975)
+    return tmp
+end 
+```
+
+
+## References
+
+::: {#refs}
+:::

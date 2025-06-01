@@ -1,5 +1,5 @@
-using DataFrames, Statistics, LinearAlgebra, SpecialFunctions
-using Distributions, StatsBase, Random, DuckDB
+using DataFrames, Statistics, LinearAlgebra
+using Distributions, StatsBase, Random
 
 # Dataset Test
 #= rng = MersenneTwister(2090);

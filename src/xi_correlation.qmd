@@ -1,0 +1,80 @@
+---
+title: "&xi; correlation coefficient"
+subtitle: "Detection of non-linear correlation"
+author: "Nicol&oacute; Foppa Pedretti"
+format: 
+  html:
+    fontsize: smaller
+    number-sections: true
+    embed-resources: true
+bibliography: reference_jbio.bib
+csl: ieee.csl
+---
+
+## Introduction
+
+$\xi$, a relatively novel correlation coefficient, surpasses classical measures in detecting associations that lack monotonicity. Derived from rank, $\xi$ exhibits resilience against outliers, while its interpretation as a measure of $X$ and $Y$ dependence remains straightforward. Its range spans from 0, denoting independence, to 1, indicating dependence. Moreover, it boasts a simple asymptotic theory applicable to sample sizes as modest as 20 under the independence hypothesis. Even categorical variables can undergo analysis through integer conversion. The $\xi$-correlation coefficent outperforms alternative tests in identifying oscillatory signals. Despite these strengths, its only drawback arises in less power compared to other independence tests for nonoscillatory signals in small samples. See [@chatterjee2020newcoefficientcorrelation]
+
+## Formula
+
+Let $(X, Y)$ be an $i.i.d$ pair of random variables, where $Y$ is not constant and $n \geq 2$. Rearrange the data as $((X_1, Y_1), \ldots, (X_n, Y_n))$ such that $X_1 \leq \ldots \leq X_n$. Let $r_i$ be the rank of $Y_i$ such that $Y_j \leq Y_i$. $\xi$-coeffcient formula is presented here with $X_i$’s and $Y_i$’s having no ties: 
+
+$$ \xi_n(X,Y) = 1 - \frac{3\sum_{i}|r_{i+1}-r_i|}{n^2 - 1} \qquad i = 1, \dots, n-1$$
+
+Hypothesis testing can be conducted without needing to assume anything about the underlying distributions. This is facilitated by the use of a nonparametric statistic, $\xi$, which relies on the ranks of the data rather than their actual values. As the sample size, n, approaches infinity and assuming Y is continuous, $\xi$ conforms to a normal distribution. Statistical testing using $\xi$ is aimed at assessing the null hypothesis, $\mathcal{H}_0$, which states that there is no dependence between the variables $X$ and $Y$. 
+
+$$\sqrt{n} \xi_n(X,Y) \xrightarrow{n \rightarrow \infty} \mathcal{N}\left(0,\frac{2}{5}\right)$$
+
+In the presence of ties, $\xi_n$ is defined as follows. If there are ties among the $X_i$'s, then choose an increasing rearrangement as above by breaking ties uniformly at random. Let ri be as before, and additionally define li to be the number of $j$ such that $Y_j \geq Y_i$:
+
+$$ \xi_n(X,Y) = 1 - \frac{n \sum_{i}|r_{i+1}-r_i|}{2 \sum_{j}l_j(n - l_j)} \quad \substack{i = 1, \dots, n-1 \\ j = 1, \dots, n}$$
+
+## Code
+
+```{julia}
+using Distributions, StatsBase
+
+function xi_corr(x, y, ties = true)
+    
+    n = length(x)
+
+    if length(y) != n
+        error("x and y don't have the same length")
+    end
+
+    y = y[sortperm(x)]
+    r = ordinalrank(y)
+    num = sum(abs.(diff(r)))
+
+    if ties
+        l = tiedrank(y)
+        den = 2 * sum(l .* (n .- l))
+        num = n * num
+    else
+        den = n^2 - 1
+        num = 3 * num
+    end
+
+    xi = 1 - num/den
+    p_val = 1 - cdf(Normal(0.0,2 / 5 / sqrt(n)), xi)
+    return xi, p_val
+end
+```
+
+Note that the formula with ties can vary based on ranking function use.
+
+## Resources 
+
+Here the list of useful links:
+
++ https://arxiv.org/pdf/1909.10140
++ https://souravchatterjee.su.domains/beam-correlation-trans.pdf
++ https://www.linkedin.com/pulse/correlation-coefficient-xi-justin-bloesch-zxukc/
++ https://github.com/jlbloesch/miscellaneous/blob/main/xicor.py
++ https://pypi.org/project/xicorpy/
++ https://cran.r-project.org/web/packages/XICOR/XICOR.pdf
+
+## References
+
+::: {#refs}
+:::
