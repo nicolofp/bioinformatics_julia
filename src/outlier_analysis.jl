@@ -45,7 +45,8 @@ function mahalanobis_distace(X)
     return(d)     
 end
 
-y =mahalanobis_distace(Mmirna)
+y = mahalanobis_distace(Mmirna)
 Chisq(k) 
+# df Chisq is number of columns (with high p?)
 sum(y .> quantile(Chisq(10), 0.95))
 

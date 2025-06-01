@@ -63,16 +63,9 @@ end
 
 Note that the formula with ties can vary based on ranking function use.
 
-## Resources 
+## Example 
 
-Here the list of useful links:
-
-+ https://arxiv.org/pdf/1909.10140
-+ https://souravchatterjee.su.domains/beam-correlation-trans.pdf
-+ https://www.linkedin.com/pulse/correlation-coefficient-xi-justin-bloesch-zxukc/
-+ https://github.com/jlbloesch/miscellaneous/blob/main/xicor.py
-+ https://pypi.org/project/xicorpy/
-+ https://cran.r-project.org/web/packages/XICOR/XICOR.pdf
+[Add example]
 
 ## References
 
