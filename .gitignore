@@ -1,3 +1,6 @@
 test_s3.jl
 .ipynb_checkpoints
 src/*.html
+src/*.ipynb
+.CondaPkg
+.vscode
