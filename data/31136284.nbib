@@ -1,0 +1,117 @@
+PMID- 31136284
+OWN - NLM
+STAT- MEDLINE
+DCOM- 20200121
+LR  - 20200121
+IS  - 1524-4628 (Electronic)
+IS  - 0039-2499 (Linking)
+VI  - 50
+IP  - 6
+DP  - 2019 Jun
+TI  - Serum MicroRNA-Based Risk Prediction for Stroke.
+PG  - 1510-1518
+LID - 10.1161/STROKEAHA.118.023648 [doi]
+AB  - Background and Purpose- Numerous studies have shown that circulating microRNAs 
+      (miRNAs) can be used as noninvasive biomarkers of various diseases. This study 
+      aimed to identify serum miRNAs that predict the risk of stroke. Methods- The 
+      cases were individuals who had been diagnosed with cerebrovascular disorder by 
+      brain imaging. The controls were individuals with no history of stroke who had 
+      undergone a medical checkup. Serum miRNA profiling was performed for all 
+      participants using microarray analysis. Samples were divided into discovery, 
+      training, and validation sets. In the discovery set, which consisted of control 
+      samples only, serum miRNAs that correlated with the predicted risk of stroke, as 
+      calculated using 7 clinical risk factors, were identified by Pearson correlation 
+      analysis. In the training set, a discriminant model between cases and controls 
+      was constructed using the identified miRNAs, Fisher linear discrimination model 
+      with leave-one-out cross-validation and DeLong test. In the validation set, the 
+      predictive accuracy of the constructed model was calculated. Results- First, in 
+      1523 control samples (discovery set), we identified 10 miRNAs that correlated 
+      with a predicted risk of stroke. Second, in 45 controls and 87 cases (training 
+      set), we identified 7 of 10 miRNAs that significantly associated with 
+      cerebrovascular disorder (miR-1228-5p, miR-1268a, miR-1268b, miR-4433b-3p, 
+      miR-6090, miR-6752-5p, and miR-6803-5p). Third, a 3-miRNA combination model 
+      (miR-1268b, miR-4433b-3p, and miR-6803-5p) was constructed in the training set 
+      with a sensitivity of 84%, a specificity of 98%, and an area under the receiver 
+      operating characteristic curve of 0.95 (95% CI, 0.92-0.98). Finally, in 45 
+      controls and 86 cases (validation set), the 3-miRNA model achieved a sensitivity 
+      of 80%, a specificity of 82%, and an area under the receiver operating 
+      characteristic of 0.89 (95% CI, 0.83-0.95) for cerebrovascular disorder. 
+      Conclusions- We identified 7 serum miRNAs that could predict the risk of 
+      cerebrovascular disorder before the onset of stroke.
+FAU - Sonoda, Takumi
+AU  - Sonoda T
+AD  - From the Division of Molecular and Cellular Medicine, National Cancer Center 
+      Research Institute, Tokyo, Japan (T. Sonoda, J.M., Y.Y., T.O.).
+FAU - Matsuzaki, Juntaro
+AU  - Matsuzaki J
+AD  - From the Division of Molecular and Cellular Medicine, National Cancer Center 
+      Research Institute, Tokyo, Japan (T. Sonoda, J.M., Y.Y., T.O.).
+FAU - Yamamoto, Yusuke
+AU  - Yamamoto Y
+AD  - From the Division of Molecular and Cellular Medicine, National Cancer Center 
+      Research Institute, Tokyo, Japan (T. Sonoda, J.M., Y.Y., T.O.).
+FAU - Sakurai, Takashi
+AU  - Sakurai T
+AD  - Center for Comprehensive Care and Research on Memory Disorders (T. Sakurai), 
+      National Center for Geriatrics and Gerontology, Aichi, Japan.
+FAU - Aoki, Yoshiaki
+AU  - Aoki Y
+AD  - Dynacom Co, Ltd, Chiba, Japan (Y.A.).
+FAU - Takizawa, Satoko
+AU  - Takizawa S
+AD  - Toray Industries, Inc, Kanagawa, Japan (S.T.).
+FAU - Niida, Shumpei
+AU  - Niida S
+AD  - Medical Genome Center (S.N.), National Center for Geriatrics and Gerontology, 
+      Aichi, Japan.
+FAU - Ochiya, Takahiro
+AU  - Ochiya T
+AD  - From the Division of Molecular and Cellular Medicine, National Cancer Center 
+      Research Institute, Tokyo, Japan (T. Sonoda, J.M., Y.Y., T.O.).
+AD  - Department of Molecular and Cellular Medicine, Tokyo Medical University, Japan 
+      (T.O.).
+LA  - eng
+PT  - Clinical Trial
+PT  - Journal Article
+PT  - Multicenter Study
+PT  - Research Support, Non-U.S. Gov't
+DEP - 20190415
+PL  - United States
+TA  - Stroke
+JT  - Stroke
+JID - 0235266
+RN  - 0 (Biomarkers)
+RN  - 0 (Cell-Free Nucleic Acids)
+RN  - 0 (MicroRNAs)
+SB  - IM
+MH  - Adult
+MH  - Aged
+MH  - Biomarkers/blood
+MH  - Cell-Free Nucleic Acids/*blood/genetics
+MH  - Cross-Sectional Studies
+MH  - Female
+MH  - Humans
+MH  - Male
+MH  - MicroRNAs/*blood/genetics
+MH  - Middle Aged
+MH  - *Models, Biological
+MH  - Oligonucleotide Array Sequence Analysis
+MH  - Predictive Value of Tests
+MH  - Risk Factors
+MH  - Stroke/*blood/genetics
+OTO - NOTNLM
+OT  - biomarkers
+OT  - cerebrovascular disorders
+OT  - circulating microRNA
+OT  - microarray analysis
+OT  - serum
+EDAT- 2019/05/29 06:00
+MHDA- 2020/01/22 06:00
+CRDT- 2019/05/29 06:00
+PHST- 2019/05/29 06:00 [entrez]
+PHST- 2019/05/29 06:00 [pubmed]
+PHST- 2020/01/22 06:00 [medline]
+AID - 10.1161/STROKEAHA.118.023648 [doi]
+PST - ppublish
+SO  - Stroke. 2019 Jun;50(6):1510-1518. doi: 10.1161/STROKEAHA.118.023648. Epub 2019 
+      Apr 15.

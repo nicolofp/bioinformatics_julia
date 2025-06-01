@@ -1,0 +1,90 @@
+---
+title: "Machine Learning prediction for stroke"
+subtitle: "Serum miRNA-based stroke prediction using Elastic-Net model"
+author: "Nicol&oacute; Foppa Pedretti"
+format: 
+  html:
+    fontsize: smaller
+    number-sections: true
+    embed-resources: true
+bibliography: reference_jbio.bib
+csl: ieee.csl
+---
+
+## Introduction
+
+See [@Sonoda2019-kt]
+
+```{julia}
+using DataFrames, Statistics, LinearAlgebra
+using Distributions, StatsBase, Random, MLJ
+
+include("test_s3.jl");
+```
+
+
+```{julia}
+lpheno = "../data/GSE117064_pheno.arrow"
+lmirna = "../data/GSE117064_mirna.arrow"
+
+pheno = DataFrame(Arrow.Table(lpheno));
+mirna = DataFrame(Arrow.Table(lmirna));
+```
+
+
+```{julia}
+pheno = pheno[pheno.class_label .== 1,:];
+pheno.diagnosis = Int64.(pheno.diagnosis)
+mirna = mirna[:,vcat("rn",pheno.geo_accession)];
+mirna.rn = "miRNA" .* string.(1:2565);
+Tmirna = permutedims(mirna,1);
+```
+
+
+```{julia}
+train, test = partition(collect(eachindex(Tmirna.miRNA1)), 0.75, shuffle=true, rng=111)
+X_train = MLJ.table(Matrix{Float64}(Tmirna[train,2:2566]))
+y_train = coerce(pheno[train,:diagnosis], OrderedFactor);
+
+X_test = MLJ.table(Matrix{Float64}(Tmirna[test,2:2566]))
+y_test = coerce(pheno[test,:diagnosis], OrderedFactor);
+```
+
+```{julia}
+# Create machine for Elastic-Net Regression 
+Standardizer = @load Standardizer pkg=MLJModels
+LogisticClassifier = @load LogisticClassifier pkg=MLJLinearModels;
+```
+
+```{julia}
+model = LogisticClassifier(solver = MLJLinearModels.ProxGrad(max_iter = 10000),
+                           penalty = :en)
+```
+
+```{julia}
+mach = machine(model, X_train, y_train) 
+```
+
+```{julia}
+fit!(mach)
+```
+
+```{julia}
+evaluate!(mach, resampling = CV(nfolds=10, rng=1234),measure = [accuracy])
+```
+
+```{julia}
+yhat = MLJ.predict_mode(mach, X_test);
+confusion_matrix(yhat, y_test)
+```
+
+```{julia}
+accuracy(yhat, y_test)
+```
+
+
+## References
+
+::: {#refs}
+:::
+
