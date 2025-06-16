@@ -32,7 +32,7 @@ $$ \xi_n(X,Y) = 1 - \frac{n \sum_{i}|r_{i+1}-r_i|}{2 \sum_{j}l_j(n - l_j)} \quad
 ## Code
 
 ```{julia}
-using Distributions, StatsBase
+using Distributions, StatsBase, Plots, Statistics, Random
 
 function xi_corr(x, y, ties = true)
     
@@ -56,16 +56,60 @@ function xi_corr(x, y, ties = true)
     end
 
     xi = 1 - num/den
-    p_val = 1 - cdf(Normal(0.0,2 / 5 / sqrt(n)), xi)
-    return xi, p_val
+    #p_val = 1 - cdf(Normal(0.0,2 / 5 / sqrt(n)), xi)
+    return xi #, p_val
 end
 ```
 
 Note that the formula with ties can vary based on ranking function use.
 
+## Permutation test
+
+Permutation tests represent a powerful non-parametric approach to hypothesis testing that operates by generating a null distribution through systematic rearrangement of observed data, thereby avoiding restrictive distributional assumptions commonly required by traditional parametric tests. These tests exist for any test statistic regardless of whether its distribution is known, making them particularly valuable for analyzing complex data structures including unbalanced designs, mixed data types, and situations where sample sizes are small relative to the number of variables. The fundamental principle underlying permutation tests involves testing the null hypothesis that group labels or treatment assignments are arbitrary by comparing the observed test statistic to its distribution under all possible permutations of the data, with statistical significance assessed based on the proportion of permuted statistics that exceed the observed value (@doi:https://doi.org/10.1002/9780470689516.oth1). Modern statistical practice increasingly recognizes permutation tests as essential tools that should be integrated into any statistician's repertoire, offering robust alternatives to conventional tests when assumptions of normality, independence, or homoscedasticity are violated, and providing exact p-values even with small sample sizes.
+
+```{julia}
+function perm_xi_correlation_test(x, y; n_permutations=10000, seed=nothing)
+    # Set seed for reproducibility if provided
+    if seed !== nothing
+        Random.seed!(seed)
+    end
+    
+    # Check that vectors have same length
+    length(x) != length(y) && throw(ArgumentError("x and y must have same length"))
+    
+    # Calculate observed correlation
+    r_observed = xi_corr(x, y)
+    
+    # Initialize array for null distribution
+    null_correlations = Vector{Float64}(undef, n_permutations)
+    
+    # Generate null distribution by permuting y
+    for i in 1:n_permutations
+        y_shuffled = shuffle(y)
+        null_correlations[i] = xi_corr(x, y_shuffled)
+    end
+    
+    # Calculate two-tailed p-value
+    # Count how many permuted correlations have absolute value >= |r_observed|
+    extreme_count = sum(abs.(null_correlations) .>= abs(r_observed))
+    p_value = (extreme_count + 1) / (n_permutations + 1)
+    
+    return r_observed, p_value, null_correlations
+end
+```
+
 ## Example 
 
-[Add example]
+Consider the deterministic nonlinear relationship $y = 2\sin(2x)$. When we sample points from this function and calculate the Pearson correlation coefficient, we obtain $r \approx 0$, suggesting no linear relationship exists between $x$ and $y$. However, this near-zero correlation coefficient is misleading because y is determined by x through a sinusoidal relationship. Let's test $\xi$ correlation for this example:
+
+```{julia}
+x = collect(0:0.01:5)
+y = 2*sin.(2 .* x) + 0.2 .* randn(length(x))
+res = perm_xi_correlation_test(x,y)
+println("Observed correlation: $(round(res[1], digits=4))")
+println("P-value permutation: $(round(res[2], digits=4))")
+println("P-value distribution: $(round(1 - cdf(Normal(0.0,2 / 5 / sqrt(length(x))), res[1]), digits=4))")
+```
 
 ## References
 

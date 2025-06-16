@@ -50,6 +50,28 @@ X_test = MLJ.table(Matrix{Float64}(Tmirna[test,2:2566]))
 y_test = coerce(pheno[test,:diagnosis], OrderedFactor);
 ```
 
+## Elastic Net regression
+
+Elastic Net regression is a linear regression technique that combines both L1 (Lasso) and L2 (Ridge) regularization. In standard linear regression, the objective is to minimize the sum of squared residuals. Elastic Net regression, on the other hand, adds a penalty term to the objective function that is a weighted combination of both the absolute values and the squared values of the regression coefficients.
+
+The objective function for Elastic Net regression can be expressed as:
+
+$$\min_{\beta_0,\beta_j} \sum_{i=1}^{n}(y_i - \beta_0 - \sum_{j=1}^{p}\beta_j x_{ij})^2 + \lambda_1 \sum_{j=1}^{p}|\beta_j| + \lambda_2 \sum_{j=1}^{p}\beta_j^2$$
+
+Here:
+
+• $n$ is the number of observations.
+• $p$ is the number of features.
+• $y_i$ is the target variable for the $i$-th observation.
+• $x_{ij}$ is the $j$-th feature for the $i$-th observation.
+• $\beta_0, \beta_1, \ldots, \beta_p$ are the regression coefficients.
+• $\lambda_1$ is the L1 regularization parameter that controls the strength of the Lasso penalty term.
+• $\lambda_2$ is the L2 regularization parameter that controls the strength of the Ridge penalty term.
+
+The term $\lambda_1 \sum_{j=1}^{p}|\beta_j|$ is the L1 penalty term (Lasso), which encourages sparsity by pushing some coefficients to exactly zero. The term $\lambda_2 \sum_{j=1}^{p}\beta_j^2$ is the L2 penalty term (Ridge), which shrinks coefficients towards zero but doesn't eliminate them entirely. This combination allows the model to benefit from both regularization techniques.
+
+Elastic Net regression is particularly beneficial when dealing with high-dimensional data where there are groups of correlated features. Unlike Lasso, which tends to arbitrarily select one feature from a group of correlated features, Elastic Net can select groups of correlated features together. It helps prevent overfitting, provides automatic feature selection, and can handle situations where the number of features exceeds the number of observations.
+
 ```{julia}
 # Create machine for Elastic-Net Regression 
 Standardizer = @load Standardizer pkg=MLJModels
