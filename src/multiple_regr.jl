@@ -34,5 +34,14 @@ println(mean(residuals, dims=1))
 scatter(residuals[:,1], residuals[:,2], xlabel="Residuals Y1", 
         ylabel="Residuals Y2", title="Residual Scatter")
 
+using Distances
 
+X = hcat(rand(Uniform(20,50),500),
+         rand(Bernoulli(0.5),500),
+         sample([1,2,3],500))
+X_scaled = (X .- mean(X, dims=1)) #./ std(X, dims=1)
 
+R = pairwise(CorrDist(), X, dims=1)
+
+i = 34
+X[[i,argmin(R[i,vcat(1:(i-1),(i+1):500)])],:]
