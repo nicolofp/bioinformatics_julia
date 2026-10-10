@@ -2,6 +2,7 @@
 title: "High-throughput linear model"
 subtitle: "Fast Julia code for EWAS analysis"
 author: "Nicol&oacute; Foppa Pedretti"
+engine: julia
 format: 
   html:
     fontsize: smaller
@@ -29,42 +30,183 @@ High-throughput experiments (HTEs) churn out massive datasets, often containing 
 
 In essence, Julia removes the computational bottleneck often encountered with traditional languages when dealing with high-dimensional linear models in HTEs. Its speed, efficiency, and focus on scientific computing make it an ideal choice for researchers who want to unlock the full potential of their HTE data.
 
-## Model 
+## Model
 
-In Julia we can simply compute multiple linear regression at once using the backslash (`\`) operator. This allow the user to optimize the code and the speed of execution. 
+In Julia we can simply compute multiple linear regression at once using the backslash (`\`) operator. This allows the user to optimize the code and the speed of execution. For sample $j = 1, \ldots, n$ and outcome $i = 1, \ldots, N$ (where $N$ is the number of outcomes) the model is
 
-$$ y_i = \beta_{0,i} + \beta_{1,i}x_1 + \beta_{2,i}x_2 + \beta_{3,i}x_3 + \epsilon$$
+$$ y_{ji} = \beta_{0i} + \beta_{1i}x_{j1} + \beta_{2i}x_{j2} + \beta_{3i}x_{j3} + \varepsilon_{ji}, \qquad \varepsilon_{ji} \sim \mathcal{N}(0, \sigma_i^2)$$
 
-Here we have $i = 1, \ldots, N$ where $N$ is the number of outputs. The code reported here below follows the classic definition of the linear regression. The only non-trivial line is related to the *standard error* of the coefficients that change based on the outcome considered. Here to solve the issue we use the *Kronecker product* and the standard error of the coefficients relative to the outcome $i$ is define as follow:
+The covariates $x_{j1}, x_{j2}, x_{j3}$ are shared by all outcomes, so the design matrix $X$ ($n \times p$, with $p$ = number of covariates + 1 for the intercept) is the same for every outcome. In matrix form $Y = XB + E$, where $Y$ is $n \times N$ and $B$ is $p \times N$, and all $N$ regressions are solved at once by `X \ Y`. Internally we use the QR factorization $X = QR$, so that $\hat B = R^{-1} Q^\top Y$ and $(X^\top X)^{-1} = R^{-1} R^{-\top}$.
 
-$$sd_i = \sqrt{\sigma \otimes diag(\Sigma)}$$
+The residual variance of outcome $i$ is
+
+$$\hat\sigma_i^2 = \frac{1}{n-p}\sum_{j=1}^{n} \left(y_{ji} - \hat y_{ji}\right)^2$$
+
+The only non-trivial line is related to the *standard error* of the coefficients, which changes with the outcome considered:
+
+$$se(\hat\beta_{ki}) = \sqrt{\hat\sigma_i^2 \, \left[(X^\top X)^{-1}\right]_{kk}}$$
+
+Since $(X^\top X)^{-1}$ is common to all outcomes, the standard errors of all coefficients of all outcomes can be computed in one shot with the *Kronecker product*:
+
+$$se = \sqrt{\hat{\boldsymbol{\sigma}}^2 \otimes \mathrm{diag}\left((X^\top X)^{-1}\right)}$$
+
+where $\hat{\boldsymbol{\sigma}}^2 = (\hat\sigma_1^2, \ldots, \hat\sigma_N^2)^\top$ is the vector of residual variances. The result is ordered outcome-major (all coefficients of outcome 1, intercept first, then outcome 2, and so on), the same order as `vec(B)`. Test statistics are $t_{ki} = \hat\beta_{ki} / se(\hat\beta_{ki})$, with two-sided p-values $2\,P(T_{n-p} > |t_{ki}|)$ and 95% confidence intervals $\hat\beta_{ki} \pm t_{n-p,\,0.975}\, se(\hat\beta_{ki})$.
+
+**FDR adjustment.** The column `padj` contains Benjamini–Hochberg adjusted p-values. The adjustment is done **separately for each covariate, across all outcomes** (for covariate $k$ the $N$ p-values $p_{k1}, \ldots, p_{kN}$ form one family), which is the usual choice in EWAS where each exposure is tested against every CpG. Intercepts are not adjusted (`padj = NaN`).
 
 Here the function ready to use in Julia:
 
 ```{julia}
-function lm_ewas(dt, out, cov)
-    X_tmp = hcat(ones(size(dt,1)), Matrix{Float32}(dt[:,cov]))
-    Y_tmp = Matrix{Float32}(dt[:,out])
-    β = X_tmp\Y_tmp 
-    σ = sqrt.(vec(sum((Y_tmp - X_tmp*β).^2,dims = 1)./(size(X_tmp,1)-size(X_tmp,2))))
-    Σ = inv(X_tmp'*X_tmp)
-    std_coeff = sqrt.(kron(σ,diag(Σ))) # Kronecker product
-
-    βvec = reshape(β,length(out) * (length(cov) + 1))
-    tval = βvec ./ std_coeff
-    pval = cdf(TDist(size(X_tmp,1)-size(X_tmp,2)), -abs.(βvec ./ std_coeff))
-    ci025 = βvec .- quantile(TDist(size(X_tmp,1)-size(X_tmp,2)), 0.975) .* std_coeff
-    ci975 = βvec .+ quantile(TDist(size(X_tmp,1)-size(X_tmp,2)), 0.975) .* std_coeff    
-    outcome = repeat(out, inner = length(cov) + 1)
-    covariates = repeat(vcat("intercept",cov), outer = length(out))
-
-    tmp = (outcome = outcome, covariates = covariates,
-           beta = βvec, sd = std_coeff, tval = tval, 
-           pval = pval, ci025 = ci025, ci975 = ci975)
-    return tmp
-end 
+using DataFrames, Distributions, LinearAlgebra, Statistics
 ```
 
+```{julia}
+# Benjamini–Hochberg adjusted p-values (same as R's p.adjust(p, "BH"))
+function bh_adjust(p::AbstractVector{<:Real})
+    m = length(p)
+    adj = similar(p, Float64)
+    m == 0 && return adj
+    order = sortperm(p, rev = true)      # largest p-value first
+    running = 1.0
+    for (r, idx) in enumerate(order)
+        rank = m - r + 1                 # rank in increasing order
+        running = min(running, p[idx] * m / rank)
+        adj[idx] = running
+    end
+    return adj
+end
+
+function lm_ewas(dt, out, cov; chunk::Integer = 10_000)
+    chunk > 0 || throw(ArgumentError("`chunk` must be a positive integer"))
+
+    # --- complete data required --------------------------------------
+    for c in vcat(cov, out)
+        nmiss = count(ismissing, dt[!, c])
+        if nmiss > 0
+            throw(ArgumentError("column `$c` has $nmiss missing value(s). " *
+                "lm_ewas requires complete data for all covariates and outcomes " *
+                "(the same design matrix is shared by every outcome). " *
+                "Impute the missing values or filter the rows (e.g. dropmissing) before calling lm_ewas."))
+        end
+    end
+
+    # --- design matrix and its QR factorization (computed once) ------
+    n = size(dt, 1)
+    X = hcat(ones(n), Matrix{Float64}(dt[:, cov]))
+    p = size(X, 2)
+    df = n - p
+    df > 0 || throw(ArgumentError("need more samples (n = $n) than parameters (p = $p)"))
+    F = qr(X)
+    R = UpperTriangular(F.R)
+    rdiag = abs.(diag(R))
+    if minimum(rdiag) <= p * eps() * maximum(rdiag)
+        throw(ArgumentError("the design matrix is rank deficient (collinear covariates?)"))
+    end
+    Rinv = inv(R)
+    d = vec(sum(abs2, Rinv, dims = 2))   # diag((X'X)^-1) = diag(R^-1 R^-T)
+
+    tdist = TDist(df)
+    tq = quantile(tdist, 0.975)
+
+    # --- outputs (long format, outcome-major, intercept first) -------
+    N = length(out)
+    K = N * p
+    βvec = Vector{Float64}(undef, K)
+    std_coeff = Vector{Float64}(undef, K)
+
+    # --- process the outcomes in blocks, reusing F --------------------
+    for start in 1:chunk:N
+        cols = start:min(start + chunk - 1, N)
+        Y = Matrix{Float64}(dt[:, out[cols]])
+        β = F \ Y                                         # p × length(cols)
+        s2 = vec(sum(abs2, Y .- X * β, dims = 1)) ./ df   # residual variances σ²
+        rows = ((first(cols) - 1) * p + 1):(last(cols) * p)
+        βvec[rows] .= vec(β)
+        std_coeff[rows] .= sqrt.(kron(s2, d))             # Kronecker product
+    end
+
+    tval = βvec ./ std_coeff
+    pval = 2 .* ccdf.(tdist, abs.(tval))                  # two-sided
+    ci025 = βvec .- tq .* std_coeff
+    ci975 = βvec .+ tq .* std_coeff
+
+    # BH adjustment per covariate across outcomes; intercept not adjusted
+    padj = fill(NaN, K)
+    for k in 2:p
+        idx = k:p:K
+        padj[idx] .= bh_adjust(pval[idx])
+    end
+
+    outcome = repeat(out, inner = p)
+    covariates = repeat(vcat("intercept", cov), outer = N)
+
+    return (outcome = outcome, covariates = covariates,
+            beta = βvec, sd = std_coeff, tval = tval,
+            pval = pval, padj = padj, ci025 = ci025, ci975 = ci975)
+end
+```
+
+The result is a `NamedTuple` of vectors, so it can be turned into a table with `DataFrame(lm_ewas(dt, out, cov))`. The method needs complete data: a `missing` value in any covariate or outcome raises an `ArgumentError` (impute or filter beforehand), and so does a rank-deficient design matrix. The keyword `chunk` (default `10_000`) processes the outcomes in blocks of `chunk` columns, reusing the same QR factorization of $X$, so only one block of $Y$ is held in dense form at any time.
+
+## Validation
+
+We simulate a data set with $n = 200$ samples, 3 covariates and 50 outcomes, fit all the models with `lm_ewas` and compare the results with `GLM.jl` (`lm`) for a few outcomes. We also check that the chunked computation gives the same results as the one-block computation (up to floating-point rounding), and that `bh_adjust` behaves as expected.
+
+```{julia}
+using GLM, Random
+
+Random.seed!(2024)
+n, ncov, nout = 200, 3, 50
+cov_names = ["x$k" for k in 1:ncov]
+out_names = ["y$i" for i in 1:nout]
+
+Xsim = randn(n, ncov)
+Bsim = randn(ncov + 1, nout) .* 0.3
+Bsim[2:end, 1:25] .= 0.0                        # half of the outcomes under the null
+σsim = 0.5 .+ 2.0 .* rand(1, nout)               # outcome-specific noise SD
+Ysim = hcat(ones(n), Xsim) * Bsim .+ σsim .* randn(n, nout)
+
+dt = DataFrame(hcat(Xsim, Ysim), vcat(cov_names, out_names))
+
+res = lm_ewas(dt, out_names, cov_names)
+p = ncov + 1
+
+check = [1, 2, 26, 50]                           # outcomes compared with GLM
+maxdiff = Dict(k => 0.0 for k in (:beta, :se, :pval, :ci025, :ci975))
+for i in check
+    f = term(Symbol(out_names[i])) ~ sum(term.(Symbol.(cov_names)))
+    m = lm(f, dt)
+    ct = coeftable(m)
+    ci = confint(m)
+    rows = ((i - 1) * p + 1):(i * p)
+    maxdiff[:beta]  = max(maxdiff[:beta],  maximum(abs.(res.beta[rows]  .- coef(m))))
+    maxdiff[:se]    = max(maxdiff[:se],    maximum(abs.(res.sd[rows]    .- stderror(m))))
+    maxdiff[:pval]  = max(maxdiff[:pval],  maximum(abs.(res.pval[rows]  .- ct.cols[ct.pvalcol])))
+    maxdiff[:ci025] = max(maxdiff[:ci025], maximum(abs.(res.ci025[rows] .- ci[:, 1])))
+    maxdiff[:ci975] = max(maxdiff[:ci975], maximum(abs.(res.ci975[rows] .- ci[:, 2])))
+end
+println("Max abs difference lm_ewas vs GLM.lm (outcomes $(check)):")
+for k in (:beta, :se, :pval, :ci025, :ci975)
+    println(rpad("  $k", 10), maxdiff[k])
+end
+
+# chunked vs single block
+res_chunk = lm_ewas(dt, out_names, cov_names; chunk = 7)
+println("Max abs difference chunk = 7 vs single block: ",
+        maximum(maximum(abs.(getfield(res, k) .- getfield(res_chunk, k)))
+                for k in (:beta, :sd, :pval, :ci025, :ci975)))
+
+# BH sanity check (values from R: p.adjust(c(0.01,0.02,0.03,0.04,0.05), "BH") = 0.05 for all)
+println("BH check: ", bh_adjust([0.01, 0.02, 0.03, 0.04, 0.05]))
+
+# missing values give an informative error
+dtm = allowmissing(dt); dtm[3, "y5"] = missing
+try
+    lm_ewas(dtm, out_names, cov_names)
+catch e
+    println("Missing-data check: ", sprint(showerror, e))
+end
+```
 
 ## References
 
