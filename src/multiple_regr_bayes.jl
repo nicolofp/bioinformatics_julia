@@ -1,3 +1,9 @@
+# multiple_regr_bayes.jl - Bayesian multivariate linear regression (Turing, NUTS) on simulated data
+# (n=100, 2 outcomes, 2 covariates + intercept): posterior means of B and the error covariance Σ,
+# R^2, residual plots; ends with a small xi-correlation demo using src/xi_correlation.jl.
+# No external data. Packages: Turing, DataFrames, Statistics, LinearAlgebra, Plots, Random
+#                             (+ Distributions, StatsBase via xi_correlation.jl)
+
 # Compute correlation matrix from Σ
 function covariance_to_correlation(Σ)
     q = size(Σ, 1)
@@ -10,10 +16,7 @@ function covariance_to_correlation(Σ)
     return ρ
 end
 
-# Print correlation matrix
-ρ_matrix = covariance_to_correlation(Σ_matrix)
-println("\nCorrelation Matrix (ρ):")
-println(ρ_matrix)
+# (correlation printout moved after Σ_matrix is estimated - fix: it was used before being defined)
 
 using Turing, DataFrames, Statistics, LinearAlgebra, Plots, Random
 
@@ -46,11 +49,14 @@ X = hcat(ones(n), Matrix(data[!, [:X1, :X2]]))  # p = 2 covariates + intercept
     # Coefficients: B is a (p × q) matrix
     B ~ filldist(Normal(0, 10), p, q)  # Weakly informative prior for coefficients
     # Covariance matrix: LKJ prior for correlation matrix, vague prior for variances
-    Σ ~ LKJCholesky(q, 2.0) * Diagonal(filldist(Exponential(1), q))
+    # Fix: a distribution cannot be multiplied by another; sample SDs and an LKJ correlation separately
+    σ ~ filldist(Exponential(1), q)
+    Ω ~ LKJ(q, 2.0)
+    Σ = Symmetric(Diagonal(σ) * Ω * Diagonal(σ))
 
     # Likelihood
     for i in 1:n
-        Y[i, :] ~ MvNormal(X[i, :] * B, Σ)  # Multivariate normal likelihood
+        Y[i, :] ~ MvNormal(B' * X[i, :], Σ)  # Multivariate normal likelihood; fix: mean is B'x_i (vector * matrix errored)
     end
 end
 
@@ -60,18 +66,26 @@ chain = sample(multivariate_regression(X, Y), NUTS(1000, 0.65), 2000)
 
 # Step 5: Extract results
 # Coefficient matrix B (mean of posterior)
-B_mean = mean(chain)[:B]  # Extract mean of B parameters
+# Fix: mean(chain)[:B] does not work for array parameters; average the B[i,j] columns (column-major)
+B_mean = vec(mean(Array(group(chain, :B)), dims = 1))
 B_matrix = reshape(B_mean, size(X, 2), size(Y, 2))  # Reshape to (p × q)
 
 # Covariance matrix Σ (mean of posterior)
-Σ_mean = mean(chain)[:Σ]  # Extract mean of Σ
-Σ_matrix = Matrix(Σ_mean)  # Convert to matrix if needed
+# Fix: Σ is not a sampled parameter any more; rebuild it from posterior means of σ and Ω (plug-in estimate)
+σ_mean = vec(mean(Array(group(chain, :σ)), dims = 1))
+Ω_mean = reshape(vec(mean(Array(group(chain, :Ω)), dims = 1)), size(Y, 2), size(Y, 2))
+Σ_matrix = Matrix(Diagonal(σ_mean) * Ω_mean * Diagonal(σ_mean))
 
 # Step 6: Print results
 println("Coefficient Matrix (B):")
 println(B_matrix)
 println("\nError Covariance Matrix (Σ):")
 println(Σ_matrix)
+
+# Print correlation matrix
+ρ_matrix = covariance_to_correlation(Σ_matrix)
+println("\nCorrelation Matrix (ρ):")
+println(ρ_matrix)
 
 # Step 7: Diagnostics
 # Predicted values
@@ -91,10 +105,11 @@ println(mean(residuals, dims=1))
 scatter(residuals[:,1], residuals[:,2], xlabel="Residuals Y1", ylabel="Residuals Y2", title="Residual Scatter")
 
 # Optional: Plot posterior distributions of coefficients
-# Example for B[1,1] (first covariate, first outcome)
-plot(chain[:B][1,1], title="Posterior of B[1,1]", xlabel="Value", ylabel="Density")
+# Example for B[1,1] (intercept, first outcome); fix: chain[:B][1,1] is not valid MCMCChains indexing
+plot(chain[Symbol("B[1,1]")], title="Posterior of B[1,1]", xlabel="Value", ylabel="Density")
 
 using Plots, Statistics, Random
+include("xi_correlation.jl")  # fix: xi_corr / perm_xi_correlation_test are defined there
 x = collect(0:0.01:5)
 y = 2*sin.(2 .* x) + 0.2 .* randn(length(x))
 scatter(x,y)

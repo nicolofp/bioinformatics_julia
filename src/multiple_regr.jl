@@ -1,4 +1,12 @@
+# multiple_regr.jl - Multivariate OLS sandbox on simulated data (N=1000, p=5 covariates, q=4 outcomes):
+# backslash vs MultivariateStats.llsq, residual covariance, per-outcome R^2; then a nearest-neighbour
+# lookup with correlation distance on a small mixed simulated matrix. No external data.
+# Packages: DataFrames, GLM, MultivariateStats, Statistics, LinearAlgebra, Plots, Random, Distributions,
+#           StatsBase, Distances
+
 using DataFrames, GLM, MultivariateStats, Statistics, LinearAlgebra, Plots
+using Random, Distributions, StatsBase  # fix: Uniform/Bernoulli/sample were used without being loaded
+Random.seed!(123)  # fix: reproducible simulation
 
 # https://discourse.julialang.org/t/multivariate-ols/9150/6
 q = 4
@@ -19,7 +27,7 @@ Y_pred = hcat(X,ones(1000)) * B2
 residuals = Y - Y_pred
 
 # Estimate error covariance matrix Σ
-Σ = (residuals' * residuals) / (N - size(X, 2))  # Covariance of errors
+Σ = (residuals' * residuals) / (N - size(X, 2) - 1)  # Covariance of errors; fix: df = N - (p + 1) incl. intercept
 
 # Step 6: Optional - Hypothesis testing (e.g., Wilks' Lambda)
 # For simplicity, compute R² for each outcome
@@ -44,4 +52,6 @@ X_scaled = (X .- mean(X, dims=1)) #./ std(X, dims=1)
 R = pairwise(CorrDist(), X, dims=1)
 
 i = 34
-X[[i,argmin(R[i,vcat(1:(i-1),(i+1):500)])],:]
+# Fix: argmin over the vector without row i returns a shifted index for rows after i
+j = argmin(R[i,vcat(1:(i-1),(i+1):500)]); j = j >= i ? j + 1 : j
+X[[i,j],:]

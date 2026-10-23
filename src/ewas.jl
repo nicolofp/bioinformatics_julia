@@ -1,5 +1,12 @@
+# ewas.jl - Epigenome/miRNA-wide association: one OLS per outcome column (y ~ covariates),
+# returning beta/SE/t/p/95% CI of the first covariate, plus the vectorised lm_series from gen_library.jl.
+# Input: CSV with outcomes in columns 1:20 and covariates in 21:22; path from ENV["EWAS_TEST_CSV"]
+#        (default <repo>/data/dt_limma_test.csv). A simulated test dataset is kept commented below.
+# Packages: DataFrames, Statistics, LinearAlgebra, Distributions, StatsBase, Random, DuckDB (+ gen_library.jl deps)
+
 using DataFrames, Statistics, LinearAlgebra
 using Distributions, StatsBase, Random
+using DuckDB  # fix: DuckDB/DBInterface were used but never loaded
 
 # Dataset Test
 #= rng = MersenneTwister(2090);
@@ -17,11 +24,13 @@ dt = DataFrame(hcat(y,x),
 out = "y" .* string.(1:K);
 cov = "x" .* string.(1:5)=#
 
+# Fix: hardcoded absolute path -> env var / repo-relative default
+csv_path = replace(get(ENV, "EWAS_TEST_CSV", joinpath(@__DIR__, "..", "data", "dt_limma_test.csv")), '\\' => '/')
 con = DBInterface.connect(DuckDB.DB, ":memory:")
 dt = DataFrame(DBInterface.execute(con,
            """
            SELECT *
-           FROM 'C:/Users/nicol/Documents/dt_limma_test.csv'
+           FROM '$csv_path'
            """));
 
 outc = names(dt)[1:20]
@@ -32,6 +41,8 @@ include("gen_library.jl")
 @time fit = lm_series(dt,outc,covr);
 
 # EWAS function 
+# Column 2 of X is the first covariate (column 1 is the intercept).
+# Fix: p-values are now two-sided (2 * cdf); they were one-sided.
 function ewas_lm(dt, out, cov, multithreads = true)
     X_tmp = hcat(ones(size(dt,1)), Matrix{Float64}(dt[:,cov]))
     m = length(out)
@@ -53,7 +64,7 @@ function ewas_lm(dt, out, cov, multithreads = true)
             results.beta[i] = β[2]
             results.sd[i] = std_coeff[2]
             results.tval[i] = β[2]/std_coeff[2]
-            results.pval[i] = cdf(TDist(size(X_tmp,1)-size(X_tmp,2)), -abs(β[2]/std_coeff[2]))
+            results.pval[i] = 2 * cdf(TDist(size(X_tmp,1)-size(X_tmp,2)), -abs(β[2]/std_coeff[2]))
             results.ci025[i] = β[2] - quantile(TDist(size(X_tmp,1)-size(X_tmp,2)), 0.975)*std_coeff[2]
             results.ci975[i] = β[2] + quantile(TDist(size(X_tmp,1)-size(X_tmp,2)), 0.975)*std_coeff[2]            
         end  
@@ -68,7 +79,7 @@ function ewas_lm(dt, out, cov, multithreads = true)
             results.beta[i] = β[2]
             results.sd[i] = std_coeff[2]
             results.tval[i] = β[2]/std_coeff[2]
-            results.pval[i] = cdf(TDist(size(X_tmp,1)-size(X_tmp,2)), -abs(β[2]/std_coeff[2]))
+            results.pval[i] = 2 * cdf(TDist(size(X_tmp,1)-size(X_tmp,2)), -abs(β[2]/std_coeff[2]))
             results.ci025[i] = β[2] - quantile(TDist(size(X_tmp,1)-size(X_tmp,2)), 0.975)*std_coeff[2]
             results.ci975[i] = β[2] + quantile(TDist(size(X_tmp,1)-size(X_tmp,2)), 0.975)*std_coeff[2]            
         end

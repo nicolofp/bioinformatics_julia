@@ -1,3 +1,7 @@
+# test_mlj.jl - MLJ sandbox on simulated data (y = -1.2 + X*b + N(0, 0.5^2), 2000 x 5):
+# CV R^2 of a decision tree regressor, 70/30 holdout RMSE / R^2. No external data.
+# Packages: DataFrames, Statistics, LinearAlgebra, Distributions, StatsBase, Random, MLJ, DecisionTree
+
 using DataFrames, Statistics, LinearAlgebra
 using Distributions, StatsBase, Random, MLJ
 
@@ -19,7 +23,7 @@ y, X = unpack(dt, ==(:y); rng=123); # the seed needs to shuffle the observation
 Tree = @load DecisionTreeRegressor pkg=DecisionTree
 tree = Tree()
 evaluate(tree, X, y,
-        resampling=CV(shuffle=true),
+        resampling=CV(shuffle=true, rng=123),  # fix: seeded shuffle
         measures= rsq,
         verbosity=0)
 

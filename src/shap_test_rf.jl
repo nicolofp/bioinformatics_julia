@@ -1,15 +1,32 @@
+# shap_test_rf.jl - HbA1c in non-CVD controls: standardise + PCA (6 PCs, fit on train) of 2565 miRNAs,
+# decision-tree regressor, test RMSE, then Monte Carlo Shapley values (ShapML) on the PC features.
+# Input: <repo>/data/GSE117064_pheno.arrow and GSE117064_mirna.arrow (GEO GSE117064 serum miRNA, CVD/stroke;
+#        mirna = 2565 miRNA rows x samples, first column "rn"). Folder overridable via ENV["BIOJ_DATA_DIR"].
+# Packages: DataFrames, Statistics, LinearAlgebra, Distributions, StatsBase, Random, MLJ, Plots, ShapML, Arrow, MultivariateStats, MLJModels, DecisionTree
+
 using DataFrames, Statistics, LinearAlgebra, Plots
 using Distributions, StatsBase, Random, MLJ, ShapML
 
-include("test_s3.jl");
-lpheno = S3Path("s3://envbran/methylation/GSE117064_pheno.arrow")
-lmirna = S3Path("s3://envbran/methylation/GSE117064_mirna.arrow")
+using Arrow
+# Fix: read the local Arrow files instead of include("test_s3.jl") (which loaded AWS credentials just to get Arrow).
+# Override the folder with ENV["BIOJ_DATA_DIR"] if the data live elsewhere.
+data_dir = get(ENV, "BIOJ_DATA_DIR", joinpath(@__DIR__, "..", "data"))
+lpheno = joinpath(data_dir, "GSE117064_pheno.arrow")
+lmirna = joinpath(data_dir, "GSE117064_mirna.arrow")
+Random.seed!(1234)  # fix: seed global RNG (tree/forest/ensemble models default to it)
 
 pheno = DataFrame(Arrow.Table(lpheno))
 pheno = pheno[pheno.relation .== "",:]
 mirna = DataFrame(Arrow.Table(lmirna))
 
-dt = pheno[pheno.source_name_ch1 .== "Non-CVD control",vcat(3,7:9,11:14)]
+# Fix: select covariates by name; the positional indices vcat(3,7:9,11:14) do not match the Arrow schema
+# (they dropped geo_accession and hb-a1c, and :systolic/:hba1c did not exist). Numeric GEO fields are strings.
+dt = pheno[pheno.source_name_ch1 .== "Non-CVD control",
+           ["geo_accession", "age:ch1", "bmi:ch1", "diastolic bp:ch1", "hb-a1c:ch1", "Sex:ch1", "smoking:ch1", "systolic bp:ch1"]]
+rename!(dt, [:geo_accession, :age, :bmi, :diastolic, :hba1c, :sex, :smoking, :systolic])
+for c in [:bmi, :diastolic, :hba1c, :systolic]
+    dt[!, c] = passmissing(x -> something(tryparse(Float64, x), missing)).(dt[!, c])
+end
 mirna = mirna[:,vcat("rn",dt.geo_accession)]
 mirna.rn = "miRNA" .* string.(1:2565) # Because we have multiple names
 Tmirna = permutedims(mirna,1)
@@ -17,8 +34,9 @@ Tmirna = permutedims(mirna,1)
 # histogram(dt.hba1c)
 # Split train-test dataset (now outcome is hba1c)
 train, test = partition(collect(eachindex(Tmirna.miRNA1)), 0.8, shuffle=true, rng=111)
-Xtrain = MLJ.table(Matrix{Float64}(mirna[train,2:1431]))
-Xtest  = MLJ.table(Matrix{Float64}(mirna[test,2:1431]))
+# Fix: rows must be samples (Tmirna, 2565 miRNA columns); the old code indexed the miRNA x sample matrix
+Xtrain = MLJ.table(Matrix{Float64}(Tmirna[train,2:2566]))
+Xtest  = MLJ.table(Matrix{Float64}(Tmirna[test,2:2566]))
 ytrain = Array{Float64}(dt[train,:hba1c])
 ytest  = Array{Float64}(dt[test,:hba1c]);
 
